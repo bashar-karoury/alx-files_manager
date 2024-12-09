@@ -29,5 +29,5 @@ export default async function postNew(req, res) {
   delete insertedUser._id;
   console.log(insertedUser);
   // return the user with email and id with status code 201
-  res.status(201).json(insertedUser);
+  return res.status(201).json(insertedUser);
 }
