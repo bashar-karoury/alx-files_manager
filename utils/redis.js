@@ -7,7 +7,6 @@ class RedisClient {
     this.client.on('error', (err) => {
       console.error('Error', err);
     });
-    this.client.connect();
   }
 
   isAlive() {
@@ -15,17 +14,22 @@ class RedisClient {
   }
 
   async get(key) {
-    return this.client.get(key);
+    const result = await this.client.get(key);
+    return result;
   }
 
   async set(key, value, duration) {
-    this.client.set(key, value, { EX: duration });
+    await this.client.set(key, value, { EX: duration });
   }
 
   async del(key) {
-    this.client.del(key);
+    await this.client.del(key);
   }
 }
 
 const redisClient = new RedisClient();
+(async () => {
+  await redisClient.client.connect();
+})();
+
 export default redisClient;
