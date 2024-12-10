@@ -1,7 +1,8 @@
 import sha1 from 'sha1';
 import dbClient from '../utils/db';
+import redisClient from '../utils/redis';
 
-export default async function postNew(req, res) {
+export async function postNew(req, res) {
   // get email and password
   const { email } = req.body;
   if (!email) {
@@ -30,4 +31,29 @@ export default async function postNew(req, res) {
   console.log(insertedUser);
   // return the user with email and id with status code 201
   return res.status(201).json(insertedUser);
+}
+
+export async function getMe(req, res) {
+  const token = req.headers['x-token'];
+  if (!token) {
+    console.error('No token header');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const key = `auth_${token}`;
+  const userId = await redisClient.get(key);
+  console.log(`key = ${key}`);
+  console.log(`keyID = ${userId}`);
+
+  if (!userId) {
+    console.error('No token in cache');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const user = await dbClient.findUserById(userId);
+  delete user.password;
+
+  // update the key name from _id to id
+  user.id = user._id;
+  delete user._id;
+  console.log('user', user);
+  return res.status(201).json(user);
 }
