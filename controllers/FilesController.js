@@ -3,6 +3,7 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
+const mime = require('mime-types');
 
 export async function postUpload(req, res) {
   // retrieve the user from token
@@ -202,4 +203,53 @@ export async function putUnpublish(req, res) {
   const update = { isPublic: false };
   file = await dbClient.updateFile(id, update);
   return res.status(200).json(file);
+}
+
+export async function getFile(req, res) {
+  // retrieve the user from token
+  let userAuthenticated = false;
+  let userId = null;
+  const token = req.headers['x-token'];
+  if (!token) {
+    console.error('No token header');
+  }
+  else{
+    const key = `auth_${token}`;
+    userId = await redisClient.get(key);
+    if (userId) {
+      const user = await dbClient.findUserById(userId);
+      if (user) {
+        userAuthenticated = true;
+      }
+    }
+  }
+
+  const { id } = req.params;
+
+  const file = await dbClient.findFileById(id);
+  if (!file) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+
+  if (!file.isPublic && (!userAuthenticated || userId !== file.userId)) {
+    console.error('isPublic ', file.isPublic);
+    console.error('userAuthenticated ', userAuthenticated);
+    return res.status(404).json({ error: 'Not found' });
+  }
+  // check if type of file is folder
+  if (file.type === 'folder') {
+    return res.status(400).json({ error: "A folder doesn't have content" });
+  }
+  // check if file exist locally
+  const { localPath } = file;
+  if (!fs.existsSync(localPath)) {
+    console.error("file doesn't exist");
+    return res.status(404).json({ error: 'Not found' });
+  }
+
+  const mimeType = mime.lookup(file.name);
+
+  res.setHeader('Content-Type', mimeType);
+  const fileContent = fs.readFileSync(localPath);
+  return res.status(200).send(fileContent);
 }
