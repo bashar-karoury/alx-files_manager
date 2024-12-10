@@ -145,3 +145,61 @@ export async function getIndex(req, res) {
   console.log(files);
   return res.status(200).json(files);
 }
+
+export async function putPublish(req, res) {
+  // retrieve the user from token
+  const token = req.headers['x-token'];
+  if (!token) {
+    console.error('No token header');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const key = `auth_${token}`;
+  const userId = await redisClient.get(key);
+
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const user = await dbClient.findUserById(userId);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const { id } = req.params;
+
+  let file = await dbClient.findFilesByUserIdAndId(userId, id);
+  if (!file) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  // update isPublic to true
+  const update = { isPublic: true };
+  file = await dbClient.updateFile(id, update);
+  return res.status(200).json(file);
+}
+
+export async function putUnpublish(req, res) {
+  // retrieve the user from token
+  const token = req.headers['x-token'];
+  if (!token) {
+    console.error('No token header');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const key = `auth_${token}`;
+  const userId = await redisClient.get(key);
+
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const user = await dbClient.findUserById(userId);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const { id } = req.params;
+
+  let file = await dbClient.findFilesByUserIdAndId(userId, id);
+  if (!file) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  // update isPublic to true
+  const update = { isPublic: false };
+  file = await dbClient.updateFile(id, update);
+  return res.status(200).json(file);
+}

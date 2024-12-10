@@ -91,6 +91,32 @@ class DBClient {
     });
     return result;
   }
+
+
+
+  async findFilesByUserIdAndId(userId, id) {
+    const collection = this.db.collection('files');
+    const result = await collection.aggregate([
+      {
+        $match: {
+          userId,
+          _id: new ObjectId(id),
+        },
+      },
+    ]).toArray();
+    console.log(result);
+    return result[0];
+  }
+
+  async updateFile(id, update) {
+    const collection = this.db.collection('files');
+    let result = await collection.updateOne(
+      { _id: new ObjectId(id) },
+      { $set: update },
+    );
+    result = await this.findFileById(id);
+    return result;
+  }
 }
 // eslint-disable-next-line import/no-mutable-exports
 const dbClient = new DBClient();
