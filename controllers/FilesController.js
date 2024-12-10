@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
 
-async function postUpload(req, res) {
+export async function postUpload(req, res) {
   // retrieve the user from token
   const token = req.headers['x-token'];
   if (!token) {
@@ -91,4 +91,57 @@ async function postUpload(req, res) {
   return res.status(201).json(fileSaved);
 }
 
-export default postUpload;
+export async function getShow(req, res) {
+  // retrieve the user from token
+  const token = req.headers['x-token'];
+  if (!token) {
+    console.error('No token header');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const key = `auth_${token}`;
+  const userId = await redisClient.get(key);
+
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const user = await dbClient.findUserById(userId);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  // get id parameter
+  const { id } = req.params;
+  if (!id) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  const result = await dbClient.findFileById(id);
+  if (result.userId !== userId) {
+    return res.status(404).json({ error: 'Not found' });
+  }
+  return res.status(200).json(result);
+}
+
+export async function getIndex(req, res) {
+  // retrieve the user from token
+  const token = req.headers['x-token'];
+  if (!token) {
+    console.error('No token header');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const key = `auth_${token}`;
+  const userId = await redisClient.get(key);
+
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const user = await dbClient.findUserById(userId);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const { parentId = 0, page = 0 } = req.query;
+  const pageSize = 20;
+  const skip = page * pageSize;
+
+  const files = await dbClient.findFilesByUserIdAndParentId(userId, parentId, skip, pageSize);
+  console.log(files);
+  return res.status(200).json(files);
+}

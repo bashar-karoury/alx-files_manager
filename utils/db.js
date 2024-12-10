@@ -61,7 +61,6 @@ class DBClient {
     const collection = this.db.collection('files');
     const user = await collection.findOne({ _id: new ObjectId(id) });
     return user;
-
   }
 
   async addFile(file) {
@@ -70,8 +69,29 @@ class DBClient {
     return result.ops[0];
   }
 
+  async findFilesByUserIdAndParentId(userId, parentId, skip, pageSize) {
+    const collection = this.db.collection('files');
+    const result = await collection.aggregate([
+      {
+        $match: {
+          userId,
+          parentId,
+        },
+      },
+      { $skip: skip },
+      { $limit: pageSize },
+    ]).toArray();
+    result.forEach((element) => {
+      // eslint-disable-next-line no-param-reassign
+      element.id = element._id;
+      // eslint-disable-next-line no-param-reassign
+      delete element._id;
+      // eslint-disable-next-line no-param-reassign
+      delete element.password;
+    });
+    return result;
+  }
 }
-
 // eslint-disable-next-line import/no-mutable-exports
 const dbClient = new DBClient();
 (async () => {
