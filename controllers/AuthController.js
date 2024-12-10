@@ -45,5 +45,5 @@ export async function getDisconnect(req, res) {
   }
   // del key
   await redisClient.del(key);
-  return res.status(204);
+  return res.status(204).end();
 }
