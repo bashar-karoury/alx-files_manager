@@ -47,7 +47,6 @@ class DBClient {
 
   async findUserById(id) {
     const collection = this.db.collection('users');
-    console.log(`----${id}--`);
     const user = await collection.findOne({ _id: new ObjectId(id) });
     return user;
   }
@@ -57,6 +56,20 @@ class DBClient {
     const result = await collection.insertOne({ email, password });
     return result.ops[0];
   }
+
+  async findFileById(id) {
+    const collection = this.db.collection('files');
+    const user = await collection.findOne({ _id: new ObjectId(id) });
+    return user;
+
+  }
+
+  async addFile(file) {
+    const collection = this.db.collection('files');
+    const result = await collection.insertOne(file);
+    return result.ops[0];
+  }
+
 }
 
 // eslint-disable-next-line import/no-mutable-exports
