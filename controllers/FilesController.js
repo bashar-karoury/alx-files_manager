@@ -154,6 +154,10 @@ export async function getIndex(req, res) {
   const skip = page * pageSize;
 
   const files = await dbClient.findFilesByUserIdAndParentId(userId, parentId, skip, pageSize);
+  files.forEach((file) => {
+    // eslint-disable-next-line no-param-reassign
+    delete file.localPath;
+  });
   console.log(files);
   return res.status(200).json(files);
 }
