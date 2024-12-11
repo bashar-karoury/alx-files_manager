@@ -58,6 +58,7 @@ class DBClient {
   }
 
   async findFileById(id) {
+    console.log('passed id ', id);
     const collection = this.db.collection('files');
     const user = await collection.findOne({ _id: new ObjectId(id) });
     return user;

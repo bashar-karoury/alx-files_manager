@@ -1,8 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import Queue from 'bull/lib/queue';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
+import { type } from 'os';
+
 const mime = require('mime-types');
 
 export async function postUpload(req, res) {
@@ -85,6 +88,14 @@ export async function postUpload(req, res) {
   };
 
   const fileSaved = await dbClient.addFile(file);
+
+  if (type === 'image') {
+    console.log('enquing job ...');
+    const fileQueue = new Queue('fileQueue', 'redis://127.0.0.1:6379');
+    // add thumbnail job to queue
+    const job = await fileQueue.add({ userId, fileId: fileSaved._id });
+  }
+
   fileSaved.id = fileSaved._id;
   delete fileSaved._id;
   delete fileSaved.password;
@@ -241,7 +252,7 @@ export async function getFile(req, res) {
     return res.status(400).json({ error: "A folder doesn't have content" });
   }
   // check if file exist locally
-  const { localPath } = file;
+  let { localPath } = file;
   if (!fs.existsSync(localPath)) {
     console.error("file doesn't exist");
     return res.status(404).json({ error: 'Not found' });
@@ -250,6 +261,22 @@ export async function getFile(req, res) {
   const mimeType = mime.lookup(file.name);
 
   res.setHeader('Content-Type', mimeType);
+
+  if (file.type === 'image') {
+    // get size query
+    const { size } = req.query;
+    console.log('size ', size);
+    if (size) {
+      // update local path
+      const sizePath = `${localPath}_${size}`;
+      if (fs.existsSync(sizePath)) {
+        localPath = sizePath;
+      } else {
+        return res.status(404).json({ error: 'Not found' });
+      }
+    }
+  }
+  console.log('localPath ', localPath);
   const fileContent = fs.readFileSync(localPath);
   return res.status(200).send(fileContent);
 }
