@@ -1,7 +1,7 @@
 import redisClient from '../utils/redis';
 import dbClient from '../utils/db';
 
-export function getStatus(req, res) {
+export async function getStatus(req, res) {
   res.status(200).json({ redis: redisClient.isAlive(), db: dbClient.isAlive() });
 }
 export async function getStats(req, res) {
