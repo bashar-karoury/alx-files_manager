@@ -125,7 +125,15 @@ export async function getShow(req, res) {
   if (!id) {
     return res.status(404).json({ error: 'Not found' });
   }
-  const result = await dbClient.findFileById(id);
+  let result = null;
+  try {
+    result = await dbClient.findFileById(id);
+  } catch (err) {
+    console.error('cant find file by id');
+  }
+  if (!result) {
+    return res.status(404).json({ error: 'Not found' });
+  }
   if (result.userId !== userId) {
     return res.status(404).json({ error: 'Not found' });
   }
@@ -150,10 +158,19 @@ export async function getIndex(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   const { parentId = 0, page = 0 } = req.query;
+
   const pageSize = 20;
   const skip = page * pageSize;
+  let files = null;
+  try {
+    files = await dbClient.findFilesByUserIdAndParentId(userId, parentId, skip, pageSize);
+  } catch (err) {
+    console.error('No files');
+  }
 
-  const files = await dbClient.findFilesByUserIdAndParentId(userId, parentId, skip, pageSize);
+  if (!files) {
+    return res.status(400).json({ error: 'Not Found' });
+  }
   files.forEach((file) => {
     // eslint-disable-next-line no-param-reassign
     delete file.localPath;
