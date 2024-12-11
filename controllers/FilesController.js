@@ -176,8 +176,12 @@ export async function putPublish(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   const { id } = req.params;
-
-  let file = await dbClient.findFilesByUserIdAndId(userId, id);
+  let file = null;
+  try {
+    file = await dbClient.findFilesByUserIdAndId(userId, id);
+  } catch (err) {
+    console.error('error finding file');
+  }
   if (!file) {
     return res.status(404).json({ error: 'Not found' });
   }
