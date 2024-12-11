@@ -186,6 +186,7 @@ export async function putPublish(req, res) {
   file = await dbClient.updateFile(id, update);
   file.id = file._id;
   delete file._id;
+  delete file.localPath;
   return res.status(200).json(file);
 }
 
@@ -217,6 +218,7 @@ export async function putUnpublish(req, res) {
   file = await dbClient.updateFile(id, update);
   file.id = file._id;
   delete file._id;
+  delete file.localPath;
   return res.status(200).json(file);
 }
 
