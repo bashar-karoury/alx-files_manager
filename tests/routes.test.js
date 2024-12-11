@@ -5,6 +5,7 @@ import sinon from 'sinon';
 import AppController from '../controllers/AppController';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
+import sha1 from 'sha1';
 
 const should = chai.should();
 
@@ -160,5 +161,140 @@ describe('POST /users', () => {
   });
 });
 });
-  // Add more test cases here
+
+// In the file routes/index.js, add 3 new endpoints:
+
+// GET /connect => AuthController.getConnect
+// GET /disconnect => AuthController.getDisconnect
+// GET /users/me => UserController.getMe
+// Inside controllers, add a file AuthController.js that contains new endpoints:
+
+// GET /connect should sign-in the user by generating a new authentication token:
+
+// By using the header Authorization and the technique of the Basic auth (Base64 of the <email>:<password>), find the user associate to this email and with this password (reminder: we are storing the SHA1 of the password)
+// If no user has been found, return an error Unauthorized with a status code 401
+// Otherwise:
+// Generate a random string (using uuidv4) as token
+// Create a key: auth_<token>
+// Use this key for storing in Redis (by using the redisClient create previously) the user ID for 24 hours
+// Return this token: { "token": "155342df-2399-41da-9e8c-458b6ac52a0c" } with a status code 200
+// Now, we have a way to identify a user, create a token (= avoid to store the password on any front-end) and use this token for 24h to access to the API!
+
+// Every authenticated endpoints of our API will look at this token inside the header X-Token.
+
+// GET /disconnect should sign-out the user based on the token:
+
+// Retrieve the user based on the token:
+// If not found, return an error Unauthorized with a status code 401
+// Otherwise, delete the token in Redis and return nothing with a status code 204
+// Inside the file controllers/UsersController.js add a new endpoint:
+
+// GET /users/me should retrieve the user base on the token used:
+
+// Retrieve the user based on the token:
+// If not found, return an error Unauthorized with a status code 401
+// Otherwise, return the user object (email and id only)
+describe('GET /connect', () => {
+  it('it should not sign in with invalid credentials', (done) => {
+    const credentials = Buffer.from('invalid@example.com:wrongpassword').toString('base64');
+    chai.request(server)
+      .get('/connect')
+      .set('Authorization', `Basic ${credentials}`)
+      .end((err, res) => {
+        res.should.have.status(401);
+        res.body.should.be.a('object');
+        res.body.should.have.property('error').eql('Unauthorized');
+        done();
+      });
+  });
+
+  it('it should sign in with valid credentials', (done) => {
+    const credentials = Buffer.from('test@example.com:123456').toString('base64');
+    const findUserByEmailStub = sinon.stub(dbClient, 'findUserByEmail').returns({
+      _id: '507f1f77bcf86cd799439011',
+      email: 'test@example.com',
+      password: sha1('123456'),
+    });
+    const redisSetStub = sinon.stub(redisClient, 'set').returns(true);
+
+    chai.request(server)
+      .get('/connect')
+      .set('Authorization', `Basic ${credentials}`)
+      .end((err, res) => {
+        res.should.have.status(200);
+        res.body.should.be.a('object');
+        res.body.should.have.property('token');
+        findUserByEmailStub.restore();
+        redisSetStub.restore();
+        done();
+      });
+  });
+});
+
+describe('GET /disconnect', () => {
+  it('it should not sign out without a valid token', (done) => {
+    chai.request(server)
+      .get('/disconnect')
+      .set('X-Token', 'invalidtoken')
+      .end((err, res) => {
+        res.should.have.status(401);
+        res.body.should.be.a('object');
+        res.body.should.have.property('error').eql('Unauthorized');
+        done();
+      });
+  });
+
+  it('it should sign out with a valid token', (done) => {
+    const token = 'validtoken';
+    const redisGetStub = sinon.stub(redisClient, 'get').returns('507f1f77bcf86cd799439011');
+    const redisDelStub = sinon.stub(redisClient, 'del').returns(true);
+
+    chai.request(server)
+      .get('/disconnect')
+      .set('X-Token', token)
+      .end((err, res) => {
+        res.should.have.status(204);
+        redisGetStub.restore();
+        redisDelStub.restore();
+        done();
+      });
+  });
+});
+
+describe('GET /users/me', () => {
+  it('it should not retrieve user without a valid token', (done) => {
+    chai.request(server)
+      .get('/users/me')
+      .set('X-Token', 'invalidtoken')
+      .end((err, res) => {
+        res.should.have.status(401);
+        res.body.should.be.a('object');
+        res.body.should.have.property('error').eql('Unauthorized');
+        done();
+      });
+  });
+
+  it('it should retrieve user with a valid token', (done) => {
+    const token = 'validtoken';
+    const redisGetStub = sinon.stub(redisClient, 'get').returns('507f1f77bcf86cd799439011');
+    const findUserByIdStub = sinon.stub(dbClient, 'findUserById').returns({
+      _id: '507f1f77bcf86cd799439011',
+      email: 'test@example.com'
+    });
+
+    chai.request(server)
+      .get('/users/me')
+      .set('X-Token', token)
+      .end((err, res) => {
+        res.should.have.status(200);
+        res.body.should.be.a('object');
+        res.body.should.have.property('id').eql('507f1f77bcf86cd799439011');
+        res.body.should.have.property('email').eql('test@example.com');
+        redisGetStub.restore();
+        findUserByIdStub.restore();
+        done();
+      });
+  });
+});
+
 });
