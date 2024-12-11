@@ -297,4 +297,228 @@ describe('GET /users/me', () => {
   });
 });
 
+
+// In the file routes/index.js, add a new endpoint:
+
+// POST /files => FilesController.postUpload
+// Inside controllers, add a file FilesController.js that contains the new endpoint:
+
+// POST /files should create a new file in DB and in disk:
+
+// Retrieve the user based on the token:
+// If not found, return an error Unauthorized with a status code 401
+// To create a file, you must specify:
+// name: as filename
+// type: either folder, file or image
+// parentId: (optional) as ID of the parent (default: 0 -> the root)
+// isPublic: (optional) as boolean to define if the file is public or not (default: false)
+// data: (only for type=file|image) as Base64 of the file content
+// If the name is missing, return an error Missing name with a status code 400
+// If the type is missing or not part of the list of accepted type, return an error Missing type with a status code 400
+// If the data is missing and type != folder, return an error Missing data with a status code 400
+// If the parentId is set:
+// If no file is present in DB for this parentId, return an error Parent not found with a status code 400
+// If the file present in DB for this parentId is not of type folder, return an error Parent is not a folder with a status code 400
+// The user ID should be added to the document saved in DB - as owner of a file
+// If the type is folder, add the new file document in the DB and return the new file with a status code 201
+// Otherwise:
+// All file will be stored locally in a folder (to create automatically if not present):
+// The relative path of this folder is given by the environment variable FOLDER_PATH
+// If this variable is not present or empty, use /tmp/files_manager as storing folder path
+// Create a local path in the storing folder with filename a UUID
+// Store the file in clear (reminder: data contains the Base64 of the file) in this local path
+// Add the new file document in the collection files with these attributes:
+// userId: ID of the owner document (owner from the authentication)
+// name: same as the value received
+// type: same as the value received
+// isPublic: same as the value received
+// parentId: same as the value received - if not present: 0
+// localPath: for a type=file|image, the absolute path to the file save in local
+// Return the new file with a status code 201
+describe('POST /files', () => {
+  afterEach(function(){
+    sinon.restore();
+  });
+
+  it('it should not create a file without a valid token', (done) => {
+    chai.request(server)
+      .post('/files')
+      .send({})
+      .end((err, res) => {
+        res.should.have.status(401);
+        res.body.should.be.a('object');
+        res.body.should.have.property('error').eql('Unauthorized');
+        done();
+      });
+  });
+
+  it('it should not create a file without name', (done) => {
+    const redisGetStub = sinon.stub(redisClient, 'get').returns('507f1f77bcf86cd799439011');
+    const findUserByIdStub = sinon.stub(dbClient, 'findUserById').returns({
+     _id: '507f1f77bcf86cd799439011',
+     email: 'test@example.com'
+   });
+    const token = 'validtoken';
+    chai.request(server)
+      .post('/files')
+      .set('X-Token', token)
+      .send({ type: 'file', data: 'dGVzdA==' })
+      .end((err, res) => {
+        res.should.have.status(400);
+        res.body.should.be.a('object');
+        res.body.should.have.property('error').eql('Missing name');
+        done();
+      });
+  });
+
+  it('it should not create a file without type', (done) => {
+    const redisGetStub = sinon.stub(redisClient, 'get').returns('507f1f77bcf86cd799439011');
+    const findUserByIdStub = sinon.stub(dbClient, 'findUserById').returns({
+     _id: '507f1f77bcf86cd799439011',
+     email: 'test@example.com'
+   });
+    const token = 'validtoken';
+    chai.request(server)
+      .post('/files')
+      .set('X-Token', token)
+      .send({ name: 'testfile', data: 'dGVzdA==' })
+      .end((err, res) => {
+        res.should.have.status(400);
+        res.body.should.be.a('object');
+        res.body.should.have.property('error').eql('Missing type');
+        done();
+      });
+  });
+
+  it('it should not create a file without data for type file', (done) => {
+    const redisGetStub = sinon.stub(redisClient, 'get').returns('507f1f77bcf86cd799439011');
+    const findUserByIdStub = sinon.stub(dbClient, 'findUserById').returns({
+     _id: '507f1f77bcf86cd799439011',
+     email: 'test@example.com'
+   });
+    const token = 'validtoken';
+    chai.request(server)
+      .post('/files')
+      .set('X-Token', token)
+      .send({ name: 'testfile', type: 'file' })
+      .end((err, res) => {
+        res.should.have.status(400);
+        res.body.should.be.a('object');
+        res.body.should.have.property('error').eql('Missing data');
+        done();
+      });
+  });
+
+  it('it should not create a file with invalid parentId', (done) => {
+    const token = 'validtoken';
+    const redisGetStub = sinon.stub(redisClient, 'get').returns('507f1f77bcf86cd799439011');
+    const findUserByIdStub = sinon.stub(dbClient, 'findUserById').returns({
+      _id: '507f1f77bcf86cd799439011',
+      email: 'test@example.com'
+    });
+    const findFileByIdStub = sinon.stub(dbClient, 'findFileById').returns(null);
+
+    chai.request(server)
+      .post('/files')
+      .set('X-Token', token)
+      .send({ name: 'testfile', type: 'file', data: 'dGVzdA==', parentId: 'invalidId' })
+      .end((err, res) => {
+        res.should.have.status(400);
+        res.body.should.be.a('object');
+        res.body.should.have.property('error').eql('Parent not found');
+        redisGetStub.restore();
+        findFileByIdStub.restore();
+        done();
+      });
+  });
+
+  it('it should not create a file if parent is not a folder', (done) => {
+    const token = 'validtoken';
+    const redisGetStub = sinon.stub(redisClient, 'get').returns('507f1f77bcf86cd799439011');
+    const findUserByIdStub = sinon.stub(dbClient, 'findUserById').returns({
+      _id: '507f1f77bcf86cd799439011',
+      email: 'test@example.com'
+    });
+    const findFileByIdStub = sinon.stub(dbClient, 'findFileById').returns({ type: 'file' });
+
+    chai.request(server)
+      .post('/files')
+      .set('X-Token', token)
+      .send({ name: 'testfile', type: 'file', data: 'dGVzdA==', parentId: '507f1f77bcf86cd799439011' })
+      .end((err, res) => {
+        res.should.have.status(400);
+        res.body.should.be.a('object');
+        res.body.should.have.property('error').eql('Parent is not a folder');
+        redisGetStub.restore();
+        findFileByIdStub.restore();
+        done();
+      });
+  });
+
+  it('it should create a folder with valid data', (done) => {
+    const token = 'validtoken';
+    const redisGetStub = sinon.stub(redisClient, 'get').returns('507f1f77bcf86cd799439011');
+    const findUserByIdStub = sinon.stub(dbClient, 'findUserById').returns({
+      _id: '507f1f77bcf86cd799439011',
+      email: 'test@example.com'
+    });
+    const addFileStub = sinon.stub(dbClient, 'addFile').returns({
+      _id: '507f1f77bcf86cd799439011',
+      name: 'testfolder',
+      type: 'folder',
+      userId: '507f1f77bcf86cd799439011',
+      isPublic: false,
+      parentId: '0'
+    });
+
+    chai.request(server)
+      .post('/files')
+      .set('X-Token', token)
+      .send({ name: 'testfolder', type: 'folder' })
+      .end((err, res) => {
+        res.should.have.status(201);
+        res.body.should.be.a('object');
+        res.body.should.have.property('id');
+        res.body.should.have.property('name').eql('testfolder');
+        res.body.should.have.property('type').eql('folder');
+        redisGetStub.restore();
+        addFileStub.restore();
+        done();
+      });
+  });
+
+  it('it should create a file with valid data', (done) => {
+    const token = 'validtoken';
+    const redisGetStub = sinon.stub(redisClient, 'get').returns('507f1f77bcf86cd799439011');
+    const findUserByIdStub = sinon.stub(dbClient, 'findUserById').returns({
+      _id: '507f1f77bcf86cd799439011',
+      email: 'test@example.com'
+    });
+    const addFileStub = sinon.stub(dbClient, 'addFile').returns({
+      _id: '507f1f77bcf86cd799439011',
+      name: 'testfile',
+      type: 'file',
+      userId: '507f1f77bcf86cd799439011',
+      isPublic: false,
+      parentId: '0',
+      localPath: '/tmp/files_manager/507f1f77bcf86cd799439011'
+    });
+
+    chai.request(server)
+      .post('/files')
+      .set('X-Token', token)
+      .send({ name: 'testfile', type: 'file', data: 'dGVzdA==' })
+      .end((err, res) => {
+        res.should.have.status(201);
+        res.body.should.be.a('object');
+        res.body.should.have.property('id');
+        res.body.should.have.property('name').eql('testfile');
+        res.body.should.have.property('type').eql('file');
+        res.body.should.have.property('localPath');
+        redisGetStub.restore();
+        addFileStub.restore();
+        done();
+      });
+  });
+});
 });
