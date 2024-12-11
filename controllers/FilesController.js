@@ -137,6 +137,9 @@ export async function getShow(req, res) {
   if (result.userId !== userId) {
     return res.status(404).json({ error: 'Not found' });
   }
+  delete result.localPath;
+  result.id = result._id;
+  delete result._id;
   return res.status(200).json(result);
 }
 
