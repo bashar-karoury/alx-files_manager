@@ -2,11 +2,9 @@ import fs from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import Queue from 'bull/lib/queue';
+import mime from 'mime-types';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
-import { type } from 'os';
-
-const mime = require('mime-types');
 
 export async function postUpload(req, res) {
   // retrieve the user from token
@@ -26,9 +24,11 @@ export async function postUpload(req, res) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  let {
-    name, type, data, parentId, isPublic = false,
+  const {
+    name, type, data, isPublic = false,
   } = req.body;
+
+  let { parentId } = req.body;
 
   if (!name) {
     return res.status(400).json({ error: 'Missing name' });
@@ -93,7 +93,7 @@ export async function postUpload(req, res) {
     console.log('enquing job ...');
     const fileQueue = new Queue('fileQueue', 'redis://127.0.0.1:6379');
     // add thumbnail job to queue
-    const job = await fileQueue.add({ userId, fileId: fileSaved._id });
+    await fileQueue.add({ userId, fileId: fileSaved._id });
   }
 
   fileSaved.id = fileSaved._id;
@@ -223,8 +223,7 @@ export async function getFile(req, res) {
   const token = req.headers['x-token'];
   if (!token) {
     console.error('No token header');
-  }
-  else{
+  } else {
     const key = `auth_${token}`;
     userId = await redisClient.get(key);
     if (userId) {

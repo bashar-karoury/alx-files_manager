@@ -1,4 +1,5 @@
 import sha1 from 'sha1';
+import Queue from 'bull';
 import dbClient from '../utils/db';
 import redisClient from '../utils/redis';
 
@@ -29,6 +30,11 @@ export async function postNew(req, res) {
   insertedUser.id = insertedUser._id;
   delete insertedUser._id;
   console.log(insertedUser);
+  // enqueu job to send welcome email to user
+  console.log('enquing users job ...');
+  const userQueue = new Queue('userQueue', 'redis://127.0.0.1:6379');
+  // add thumbnail job to queue
+  await userQueue.add({ userId: insertedUser.id });
   // return the user with email and id with status code 201
   return res.status(201).json(insertedUser);
 }

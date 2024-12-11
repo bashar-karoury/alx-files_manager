@@ -93,8 +93,6 @@ class DBClient {
     return result;
   }
 
-
-
   async findFilesByUserIdAndId(userId, id) {
     const collection = this.db.collection('files');
     const result = await collection.aggregate([
