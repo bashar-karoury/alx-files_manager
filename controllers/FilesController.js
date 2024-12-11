@@ -184,6 +184,8 @@ export async function putPublish(req, res) {
   // update isPublic to true
   const update = { isPublic: true };
   file = await dbClient.updateFile(id, update);
+  file.id = file._id;
+  delete file._id;
   return res.status(200).json(file);
 }
 
@@ -213,6 +215,8 @@ export async function putUnpublish(req, res) {
   // update isPublic to true
   const update = { isPublic: false };
   file = await dbClient.updateFile(id, update);
+  file.id = file._id;
+  delete file._id;
   return res.status(200).json(file);
 }
 

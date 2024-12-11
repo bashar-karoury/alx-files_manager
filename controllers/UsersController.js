@@ -61,5 +61,5 @@ export async function getMe(req, res) {
   user.id = user._id;
   delete user._id;
   console.log('user', user);
-  return res.status(201).json(user);
+  return res.status(200).json(user);
 }

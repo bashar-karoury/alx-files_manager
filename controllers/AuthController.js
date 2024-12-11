@@ -17,7 +17,7 @@ export async function getConnect(req, res) {
   if (!userWithEmail) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
-  console.log(`user_hashed_password = ${userWithEmail.password} , receieved password hash = ${sha1(password)}`);
+
   if (userWithEmail.password !== sha1(password)) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
@@ -26,6 +26,7 @@ export async function getConnect(req, res) {
   const token = uuidv4();
   const key = `auth_${token}`;
   console.log('key', key);
+  console.log('connection of client is alive ', dbClient.isAlive());
   await redisClient.set(key, userWithEmail._id.toString(), 24 * 60 * 60);
 
   return res.status(200).json({ token });
