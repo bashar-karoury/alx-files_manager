@@ -180,6 +180,8 @@ export async function getIndex(req, res) {
   const skip = page * pageSize;
   let files = null;
   try {
+    console.log('userId : ', userId);
+    console.log('parentId : ', parentId);
     files = await dbClient.findFilesByUserIdAndParentId(userId, parentId, skip, pageSize);
   } catch (err) {
     console.error('No files');
