@@ -76,7 +76,7 @@ class DBClient {
       {
         $match: {
           userId: new ObjectId(userId),
-          parentId: String(parentId),
+          parentId: new ObjectId(parentId),
         },
       },
       { $skip: skip },
