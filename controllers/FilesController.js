@@ -58,7 +58,12 @@ export async function postUpload(req, res) {
     const file = {
       userId, name, type, isPublic, parentId,
     };
-    const fileSaved = await dbClient.addFile(file);
+    const fileToSave = {
+      ...file,
+      userId: dbClient.convertToObjectId(userId),
+      parentId: parentId ? dbClient.convertToObjectId(parentId) : 0,
+    };
+    const fileSaved = await dbClient.addFile(fileToSave);
     fileSaved.id = fileSaved._id;
     delete fileSaved._id;
     delete fileSaved.password;
@@ -87,7 +92,12 @@ export async function postUpload(req, res) {
     localPath: filePath,
   };
 
-  const fileSaved = await dbClient.addFile(file);
+  const fileToSave = {
+    ...file,
+    userId: dbClient.convertToObjectId(userId),
+    parentId: parentId ? dbClient.convertToObjectId(parentId) : 0,
+  };
+  const fileSaved = await dbClient.addFile(fileToSave);
 
   if (type === 'image') {
     console.log('enquing job ...');
@@ -131,10 +141,14 @@ export async function getShow(req, res) {
   } catch (err) {
     console.error('cant find file by id');
   }
+  console.log('result = ', result);
   if (!result) {
     return res.status(404).json({ error: 'Not found' });
   }
-  if (result.userId !== userId) {
+  console.log('result.userId : ', result.userId);
+  console.log('userId : ', userId);
+
+  if (String(result.userId) !== String(userId)) {
     return res.status(404).json({ error: 'Not found' });
   }
   delete result.localPath;
