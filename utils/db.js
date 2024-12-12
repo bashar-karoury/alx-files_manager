@@ -75,8 +75,8 @@ class DBClient {
     const result = await collection.aggregate([
       {
         $match: {
-          userId,
-          parentId,
+          userId: new ObjectId(userId),
+          parentId: new ObjectId(parentId),
         },
       },
       { $skip: skip },
@@ -98,7 +98,7 @@ class DBClient {
     const result = await collection.aggregate([
       {
         $match: {
-          userId,
+          userId: new ObjectId(userId),
           _id: new ObjectId(id),
         },
       },

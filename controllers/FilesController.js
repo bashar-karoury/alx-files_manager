@@ -276,13 +276,6 @@ export async function getFile(req, res) {
   }
 
   if (!file.isPublic && (!userAuthenticated || (String(userId) !== String(file.userId)))) {
-    // console.error('isPublic ', file.isPublic);
-    // console.error('userId ', userId);
-    // console.error('file.userId ', file.userId);
-    // console.error('type of userID', typeof userId);
-    // console.error('type of fileuserID', typeof file.userId);
-    // console.error('Id check ', (String(userId) === String(file.userId)));
-    // console.error('userAuthenticated ', userAuthenticated);
     return res.status(404).json({ error: 'Not found' });
   }
   // check if type of file is folder
